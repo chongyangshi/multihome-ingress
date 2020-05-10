@@ -50,8 +50,11 @@ func main() {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
-	controller := newNodeController(clientSet)
-	go controller.run(stopChan)
+	nController := newNodeController(clientSet)
+	go nController.run(stopChan)
+
+	svcController := newServiceController(clientSet)
+	go svcController.run(stopChan)
 
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
