@@ -1,70 +1,170 @@
-package controller
+package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
-	"github.com/monzo/slog"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	nodeV1beta1 "k8s.io/client-go/kubernetes/typed/node/v1beta1"
+	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	ingressMultihomeNamespace = "ingress-multihome-system"
-	defaultKubeconfig         = filepath.Join(os.Getenv("HOME"), ".kube", "config")
-)
+const resyncInterval = time.Second * 30
 
-func init() {
-	var config *rest.Config
+type nodeController struct {
+	factory informers.SharedInformerFactory
+	lister  corelisters.NodeLister
+	synced  cache.InformerSynced
+}
+
+type stop struct{}
+
+const ingressMultihomeNamespace = "ingress-multihome-system"
+
+var defaultKubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
+
+func newNodeController(clientSet kubernetes.Interface) *nodeController {
+	informerFactory := informers.NewFilteredSharedInformerFactory(clientSet, resyncInterval, "", nil)
+	informer := informerFactory.Core().V1().Nodes()
+
+	controller := &nodeController{
+		factory: informerFactory,
+	}
+
+	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.add,
+		UpdateFunc: controller.update,
+		DeleteFunc: controller.delete,
+	})
+
+	controller.lister = informer.Lister()
+	controller.synced = informer.Informer().HasSynced
+
+	return controller
+}
+
+func (c *nodeController) list() ([]*coreV1.Node, error) {
+	nodes, err := c.lister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
+}
+
+// Run starts the node controller
+func (c *nodeController) run(stopChan chan struct{}) {
+	defer runtime.HandleCrash()
+
+	log.Println("Starting node controller.")
+	defer log.Println("Shutting down controller.")
+
+	c.factory.Start(stopChan)
+
+	if ok := cache.WaitForCacheSync(stopChan, c.synced); !ok {
+		log.Fatalln("Failed to wait for cache synchronization")
+	}
+
+	nodes, err := c.list()
+	if err != nil {
+		log.Fatalf("Error listing nodes initially: %v", err)
+	}
+
+	if err = createRuleSpecifications(nodes); err != nil {
+		log.Fatalf("Error setting up initial rule specifications: %v", err)
+	}
+
+	<-stopChan
+}
+
+func (c *nodeController) add(obj interface{}) {
+	nodeState, ok := obj.(*coreV1.Node)
+	if !ok {
+		log.Printf("Could not process add: unexpected type for Node: %v", obj)
+		return
+	}
+
+	// @TODO
+	fmt.Println(nodeState.Status.Addresses)
+}
+
+func (c *nodeController) update(old, new interface{}) {
+	oldNodeState, ok := old.(*coreV1.Node)
+	if !ok {
+		log.Printf("Could not process update: unexpected old state type for Node: %v", old)
+		return
+	}
+	newNodeState, ok := new.(*coreV1.Node)
+	if !ok {
+		log.Printf("Could not process update: unexpected new state type for Node: %v", new)
+		return
+	}
+
+	// @TODO
+	fmt.Println(oldNodeState.Status.Addresses)
+	fmt.Println(newNodeState.Status.Addresses)
+}
+
+func (c *nodeController) delete(obj interface{}) {
+	lastNodeState, ok := obj.(*coreV1.Node)
+	if !ok {
+		log.Printf("Could not process delete: unexpected last state type for Node: %v", obj)
+		return
+	}
+
+	// @TODO
+	fmt.Println(lastNodeState.Status.Addresses)
+}
+
+func main() {
+	var (
+		config *rest.Config
+		err    error
+	)
 
 	if os.Getenv("KUBE_CONFIG") != "" {
-		kubeconfigFile, err := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
+		config, err = clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
 		if err != nil {
-			log.Fatalf("Cannot read kubeconfig from environment variable location KUBECONFIG=%s", os.Getenv("KUBE_CONFIG"))
+			log.Fatalf("Cannot read kubeconfig from environment variable: %v", err.Error())
 		}
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-		if err != nil {
-			log.Fatalf("Cannot parse kubeconfig from environment variable: %v", err.Error())
-		}
-		log.Println("Using kubeconfig from environment variable location KUBECONFIG=%s", os.Getenv("KUBE_CONFIG"))
+		log.Printf("Using kubeconfig from environment variable location KUBECONFIG=%s", os.Getenv("KUBE_CONFIG"))
 	} else {
 		log.Println("No KUBECONFIG found in environment, assumi we are in cluster, using in-cluster client config.")
-		config, err := rest.InClusterConfig()
+		config, err = rest.InClusterConfig()
 		if err != nil {
-			slog.Error(ctx, "Could not load in-cluster config: %v", err)
-			return err
+			log.Fatalf("Could not load in-cluster config: %v", err)
 		}
 	}
 
-	nodeClient := nodeV1beta1.NewForConfig(config)
+	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Fatalf("Error initialising Kubernetes Node Client based on kubeconfig: %v", err)
 	}
 
-	// Retrieve initial list of nodes
-	var listNodesTimeout int64 = 30
-	listOptions := metav1.ListOptions{TimeoutSeconds: &listNodesTimeout}
-	nodes, err := nodeClient.
-	if err != nil {
-		log.Fatal(err)
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+
+	controller := newNodeController(clientSet)
+	go controller.run(stopChan)
+
+	osSignals := make(chan os.Signal, 1)
+	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
+
+	// Run forever (until interrupted)
+	select {
+	case <-osSignals:
+		stopChan <- stop{}
+	default:
 	}
-
-	printPVCs(pvcs)
-	fmt.Println()
-
-	// watch future changes to PVCs
-	watcher, err := clientset.CoreV1().PersistentVolumeClaims(ns).Watch(listOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	ch := watcher.ResultChan()
-
 }
