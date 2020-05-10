@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -65,9 +64,7 @@ func (c *nodeController) run(stopChan chan struct{}) {
 		log.Fatalf("Error listing nodes initially: %v", err)
 	}
 
-	if err = createRuleSpecifications(nodes); err != nil {
-		log.Fatalf("Error setting up initial rule specifications: %v", err)
-	}
+	updateNodesStatus(nodes)
 
 	<-stopChan
 }
@@ -79,25 +76,21 @@ func (c *nodeController) add(obj interface{}) {
 		return
 	}
 
-	// @TODO
-	fmt.Println(nodeState.Status.Addresses)
+	updateNodeStatus(nodeState)
+
+	// @TODO: retrieve new list of ready nodes and match them to DNS rules
 }
 
 func (c *nodeController) update(old, new interface{}) {
-	oldNodeState, ok := old.(*coreV1.Node)
-	if !ok {
-		log.Printf("Could not process update: unexpected old state type for Node: %v", old)
-		return
-	}
 	newNodeState, ok := new.(*coreV1.Node)
 	if !ok {
 		log.Printf("Could not process update: unexpected new state type for Node: %v", new)
 		return
 	}
 
-	// @TODO
-	fmt.Println(oldNodeState.Status.Addresses)
-	fmt.Println(newNodeState.Status.Addresses)
+	updateNodeStatus(newNodeState)
+
+	// @TODO: retrieve new list of ready nodes and match them to DNS rules
 }
 
 func (c *nodeController) delete(obj interface{}) {
@@ -107,6 +100,7 @@ func (c *nodeController) delete(obj interface{}) {
 		return
 	}
 
-	// @TODO
-	fmt.Println(lastNodeState.Status.Addresses)
+	removeNode(lastNodeState.Name)
+
+	// @TODO: retrieve new list of ready nodes and match them to DNS rules
 }

@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	coreV1 "k8s.io/api/core/v1"
+
+	"github.com/icydoge/k8s-ingress-multihome/proto"
 )
 
 const serviceLabel = "multihome-ingress"
@@ -45,22 +47,12 @@ func getService(name, namespace string) (*coreV1.Service, bool) {
 	return svc, ok
 }
 
-// Returns a list of services which will be processed by ingress-multihome
-func getMatchingServices() []*coreV1.Service {
-	servicesMutex.RLock()
-	defer servicesMutex.RUnlock()
-
-	var result []*coreV1.Service
-	for _, svc := range services {
-		result = append(result, svc)
-	}
-
-	return result
-}
-
 // From a list of services provided, record those that will be processed
 // by k8s-ingress-multihome (NodePort services with a specific label)
 func addMatchingServices(svcs []*coreV1.Service) {
+	servicesMutex.Lock()
+	defer servicesMutex.Unlock()
+
 	for _, svc := range svcs {
 		// We only process services with a NodePort i.e. intentionally exposed
 		if svc.Spec.Type != coreV1.ServiceTypeNodePort {
@@ -74,4 +66,41 @@ func addMatchingServices(svcs []*coreV1.Service) {
 
 		addOrUpdateService(svc)
 	}
+}
+
+// Returns a list of services which will be processed by ingress-multihome
+func getMatchingServices() []*coreV1.Service {
+	servicesMutex.RLock()
+	defer servicesMutex.RUnlock()
+
+	var result []*coreV1.Service
+	for _, svc := range services {
+		result = append(result, svc)
+	}
+
+	return result
+}
+
+// Returns a list of rule specifications to be applied on edges in order
+// to route ingress for across all matching services.
+func computeRuleSpecifications() []*proto.RuleSpecification {
+	servicesMutex.RLock()
+	defer servicesMutex.RUnlock()
+
+	var result []*proto.RuleSpecification
+	for _, svc := range services {
+		// Should never happen as we only add NodePorts to the list
+		if svc.Spec.Type != coreV1.ServiceTypeNodePort {
+			continue
+		}
+
+		for _, port := range svc.Spec.Ports {
+			result = append(result, &proto.RuleSpecification{
+				Protocol: proto.KubeProtocolToProtoProtocol(port.Protocol),
+				NodePort: port.NodePort,
+			})
+		}
+	}
+
+	return result
 }
