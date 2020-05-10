@@ -133,7 +133,7 @@ func main() {
 		err    error
 	)
 
-	if os.Getenv("KUBE_CONFIG") != "" {
+	if os.Getenv("KUBECONFIG") != "" {
 		config, err = clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
 		if err != nil {
 			log.Fatalf("Cannot read kubeconfig from environment variable: %v", err.Error())
