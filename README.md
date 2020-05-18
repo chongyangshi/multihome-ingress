@@ -1,3 +1,3 @@
-# k8s-ingress-multihome
+# multihome-ingress
 
 Work in progress, check back later.

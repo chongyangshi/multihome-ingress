@@ -6,7 +6,7 @@ import (
 
 	coreV1 "k8s.io/api/core/v1"
 
-	"github.com/icydoge/k8s-ingress-multihome/proto"
+	"github.com/icydoge/multihome-ingress/proto"
 )
 
 const serviceLabel = "multihome-ingress"
@@ -48,7 +48,7 @@ func getService(name, namespace string) (*coreV1.Service, bool) {
 }
 
 // From a list of services provided, record those that will be processed
-// by k8s-ingress-multihome (NodePort services with a specific label)
+// by multihome-ingress (NodePort services with a specific label)
 func addMatchingServices(svcs []*coreV1.Service) {
 	servicesMutex.Lock()
 	defer servicesMutex.Unlock()
@@ -68,7 +68,7 @@ func addMatchingServices(svcs []*coreV1.Service) {
 	}
 }
 
-// Returns a list of services which will be processed by ingress-multihome
+// Returns a list of services which will be processed by multihome-ingress
 func getMatchingServices() []*coreV1.Service {
 	servicesMutex.RLock()
 	defer servicesMutex.RUnlock()

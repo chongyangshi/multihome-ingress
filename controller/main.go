@@ -16,7 +16,7 @@ import (
 type stop struct{}
 
 const (
-	ingressMultihomeNamespace = "ingress-multihome-system"
+	ingressMultihomeNamespace = "multihome-ingress-system"
 	resyncInterval            = time.Second * 30
 )
 
