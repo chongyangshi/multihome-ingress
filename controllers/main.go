@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
@@ -11,6 +12,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/icydoge/multihome-ingress/controllers/apis"
+	"github.com/icydoge/multihome-ingress/controllers/nodes"
+	"github.com/icydoge/multihome-ingress/controllers/services"
 )
 
 type stop struct{}
@@ -50,11 +55,17 @@ func main() {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
-	nController := newNodeController(clientSet)
+	nController := nodes.NewNodeController(clientSet)
 	go nController.run(stopChan)
 
-	svcController := newServiceController(clientSet)
+	svcController := services.NewServiceController(clientSet)
 	go svcController.run(stopChan)
+
+	ctx := context.Background()
+	err := apis.Init(ctx, stopChan)
+	if err != nil {
+		log.Fatalf("Error initialising internal API server: %v", err)
+	}
 
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)

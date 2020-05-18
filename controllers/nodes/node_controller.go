@@ -1,4 +1,4 @@
-package main
+package nodes
 
 import (
 	"log"
@@ -12,17 +12,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type nodeController struct {
+// NodeController is a custom Kubernete Node controller for keeping the list
+// of servicable nodes for multihome ingress up to date.
+type NodeController struct {
 	factory informers.SharedInformerFactory
 	lister  corelisters.NodeLister
 	synced  cache.InformerSynced
 }
 
-func newNodeController(clientSet kubernetes.Interface) *nodeController {
+// NewNodeController initialises a Kubernete Node controller for keeping the list
+// of servicable nodes for multihome ingress up to date.
+func NewNodeController(clientSet kubernetes.Interface) *NodeController {
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(clientSet, resyncInterval)
 	informer := informerFactory.Core().V1().Nodes()
 
-	controller := &nodeController{
+	controller := &NodeController{
 		factory: informerFactory,
 	}
 
@@ -38,7 +42,7 @@ func newNodeController(clientSet kubernetes.Interface) *nodeController {
 	return controller
 }
 
-func (c *nodeController) list() ([]*coreV1.Node, error) {
+func (c *NodeController) list() ([]*coreV1.Node, error) {
 	nodes, err := c.lister.List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -47,7 +51,7 @@ func (c *nodeController) list() ([]*coreV1.Node, error) {
 	return nodes, nil
 }
 
-func (c *nodeController) run(stopChan chan struct{}) {
+func (c *NodeController) run(stopChan chan struct{}) {
 	defer runtime.HandleCrash()
 
 	log.Println("Starting node controller.")
@@ -69,7 +73,7 @@ func (c *nodeController) run(stopChan chan struct{}) {
 	<-stopChan
 }
 
-func (c *nodeController) add(obj interface{}) {
+func (c *NodeController) add(obj interface{}) {
 	nodeState, ok := obj.(*coreV1.Node)
 	if !ok {
 		log.Printf("Could not process add: unexpected type for Node: %v", obj)
@@ -79,7 +83,7 @@ func (c *nodeController) add(obj interface{}) {
 	updateNodeStatus(nodeState)
 }
 
-func (c *nodeController) update(old, new interface{}) {
+func (c *NodeController) update(old, new interface{}) {
 	newNodeState, ok := new.(*coreV1.Node)
 	if !ok {
 		log.Printf("Could not process update: unexpected new state type for Node: %v", new)
@@ -89,7 +93,7 @@ func (c *nodeController) update(old, new interface{}) {
 	updateNodeStatus(newNodeState)
 }
 
-func (c *nodeController) delete(obj interface{}) {
+func (c *NodeController) delete(obj interface{}) {
 	lastNodeState, ok := obj.(*coreV1.Node)
 	if !ok {
 		log.Printf("Could not process delete: unexpected last state type for Node: %v", obj)

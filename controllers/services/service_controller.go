@@ -12,17 +12,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type serviceController struct {
+// ServiceController is a controller monitoring NodePort services with
+// multihome ingress enabled.
+type ServiceController struct {
 	factory informers.SharedInformerFactory
 	lister  corelisters.ServiceLister
 	synced  cache.InformerSynced
 }
 
-func newServiceController(clientSet kubernetes.Interface) *serviceController {
+// NewServiceController initialises a controller for monitoring NodePort services
+// with multihome ingress enabled.
+func NewServiceController(clientSet kubernetes.Interface) *ServiceController {
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(clientSet, resyncInterval)
 	informer := informerFactory.Core().V1().Services()
 
-	controller := &serviceController{
+	controller := &ServiceController{
 		factory: informerFactory,
 	}
 
@@ -38,7 +42,7 @@ func newServiceController(clientSet kubernetes.Interface) *serviceController {
 	return controller
 }
 
-func (c *serviceController) list() ([]*coreV1.Service, error) {
+func (c *ServiceController) list() ([]*coreV1.Service, error) {
 	services, err := c.lister.List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -47,7 +51,7 @@ func (c *serviceController) list() ([]*coreV1.Service, error) {
 	return services, nil
 }
 
-func (c *serviceController) run(stopChan chan struct{}) {
+func (c *ServiceController) run(stopChan chan struct{}) {
 	defer runtime.HandleCrash()
 
 	log.Println("Starting service controller.")
@@ -69,7 +73,7 @@ func (c *serviceController) run(stopChan chan struct{}) {
 	<-stopChan
 }
 
-func (c *serviceController) add(obj interface{}) {
+func (c *ServiceController) add(obj interface{}) {
 	serviceState, ok := obj.(*coreV1.Service)
 	if !ok {
 		log.Printf("Could not process add: unexpected type for Service: %v", obj)
@@ -79,7 +83,7 @@ func (c *serviceController) add(obj interface{}) {
 	addMatchingServices([]*coreV1.Service{serviceState})
 }
 
-func (c *serviceController) update(old, new interface{}) {
+func (c *ServiceController) update(old, new interface{}) {
 	newServiceState, ok := new.(*coreV1.Service)
 	if !ok {
 		log.Printf("Could not process update: unexpected new state type for Service: %v", new)
@@ -89,7 +93,7 @@ func (c *serviceController) update(old, new interface{}) {
 	addMatchingServices([]*coreV1.Service{newServiceState})
 }
 
-func (c *serviceController) delete(obj interface{}) {
+func (c *ServiceController) delete(obj interface{}) {
 	lastServiceState, ok := obj.(*coreV1.Service)
 	if !ok {
 		log.Printf("Could not process delete: unexpected last state type for Service: %v", obj)

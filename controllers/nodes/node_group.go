@@ -1,4 +1,4 @@
-package main
+package nodes
 
 import (
 	coreV1 "k8s.io/api/core/v1"
@@ -6,7 +6,9 @@ import (
 	"github.com/icydoge/multihome-ingress/proto"
 )
 
-func computeNodeGroup() []*proto.NodeGroup {
+// ComputeNodeGroup returns a current list of nodes ready to serve NodePort traffic,
+// which are subject to multihome ingress and grouped by underlying routing system.
+func ComputeNodeGroup() []*proto.NodeGroup {
 	// We index with a map for convenience
 	var groups = map[string]*proto.NodeGroup{}
 

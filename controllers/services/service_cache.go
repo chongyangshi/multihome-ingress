@@ -79,9 +79,9 @@ func getMatchingServices() []*coreV1.Service {
 	return result
 }
 
-// Returns a list of rule specifications to be applied on edges in order
-// to route ingress for across all matching services.
-func computeRuleSpecifications() []*proto.RuleSpecification {
+// ComputeRuleSpecifications returns a list of rule specifications to be applied on
+// edges in order to route ingress for across all matching services.
+func ComputeRuleSpecifications() []*proto.RuleSpecification {
 	servicesMutex.RLock()
 	defer servicesMutex.RUnlock()
 
