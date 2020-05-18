@@ -77,8 +77,6 @@ func (c *nodeController) add(obj interface{}) {
 	}
 
 	updateNodeStatus(nodeState)
-
-	// @TODO: retrieve new list of ready nodes and match them to DNS rules
 }
 
 func (c *nodeController) update(old, new interface{}) {
@@ -89,8 +87,6 @@ func (c *nodeController) update(old, new interface{}) {
 	}
 
 	updateNodeStatus(newNodeState)
-
-	// @TODO: retrieve new list of ready nodes and match them to DNS rules
 }
 
 func (c *nodeController) delete(obj interface{}) {
@@ -101,6 +97,4 @@ func (c *nodeController) delete(obj interface{}) {
 	}
 
 	removeNode(lastNodeState.Name)
-
-	// @TODO: retrieve new list of ready nodes and match them to DNS rules
 }

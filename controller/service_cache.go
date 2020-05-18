@@ -9,8 +9,6 @@ import (
 	"github.com/icydoge/multihome-ingress/proto"
 )
 
-const serviceLabel = "multihome-ingress"
-
 var (
 	services      = map[string]*coreV1.Service{}
 	servicesMutex = sync.RWMutex{}
@@ -59,8 +57,8 @@ func addMatchingServices(svcs []*coreV1.Service) {
 			continue
 		}
 
-		// And we only process services with our specific label applied
-		if _, found := svc.Labels[serviceLabel]; !found {
+		// And we only process services with our specific label applied and enabled.
+		if svcEnabled, found := svc.Labels[proto.MultihomeIngressServiceLabel]; !found || svcEnabled != "true" {
 			continue
 		}
 
