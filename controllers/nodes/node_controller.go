@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"log"
+	"time"
 
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -22,7 +23,7 @@ type NodeController struct {
 
 // NewNodeController initialises a Kubernete Node controller for keeping the list
 // of servicable nodes for multihome ingress up to date.
-func NewNodeController(clientSet kubernetes.Interface) *NodeController {
+func NewNodeController(clientSet kubernetes.Interface, resyncInterval time.Duration) *NodeController {
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(clientSet, resyncInterval)
 	informer := informerFactory.Core().V1().Nodes()
 
@@ -42,16 +43,7 @@ func NewNodeController(clientSet kubernetes.Interface) *NodeController {
 	return controller
 }
 
-func (c *NodeController) list() ([]*coreV1.Node, error) {
-	nodes, err := c.lister.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	return nodes, nil
-}
-
-func (c *NodeController) run(stopChan chan struct{}) {
+func (c *NodeController) Run(stopChan chan struct{}) {
 	defer runtime.HandleCrash()
 
 	log.Println("Starting node controller.")
@@ -71,6 +63,15 @@ func (c *NodeController) run(stopChan chan struct{}) {
 	updateNodesStatus(nodes)
 
 	<-stopChan
+}
+
+func (c *NodeController) list() ([]*coreV1.Node, error) {
+	nodes, err := c.lister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
 }
 
 func (c *NodeController) add(obj interface{}) {

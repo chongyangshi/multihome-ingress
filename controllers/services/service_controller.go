@@ -1,7 +1,8 @@
-package main
+package services
 
 import (
 	"log"
+	"time"
 
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -22,7 +23,7 @@ type ServiceController struct {
 
 // NewServiceController initialises a controller for monitoring NodePort services
 // with multihome ingress enabled.
-func NewServiceController(clientSet kubernetes.Interface) *ServiceController {
+func NewServiceController(clientSet kubernetes.Interface, resyncInterval time.Duration) *ServiceController {
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(clientSet, resyncInterval)
 	informer := informerFactory.Core().V1().Services()
 
@@ -42,16 +43,7 @@ func NewServiceController(clientSet kubernetes.Interface) *ServiceController {
 	return controller
 }
 
-func (c *ServiceController) list() ([]*coreV1.Service, error) {
-	services, err := c.lister.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	return services, nil
-}
-
-func (c *ServiceController) run(stopChan chan struct{}) {
+func (c *ServiceController) Run(stopChan chan struct{}) {
 	defer runtime.HandleCrash()
 
 	log.Println("Starting service controller.")
@@ -71,6 +63,15 @@ func (c *ServiceController) run(stopChan chan struct{}) {
 	addMatchingServices(services)
 
 	<-stopChan
+}
+
+func (c *ServiceController) list() ([]*coreV1.Service, error) {
+	services, err := c.lister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	return services, nil
 }
 
 func (c *ServiceController) add(obj interface{}) {

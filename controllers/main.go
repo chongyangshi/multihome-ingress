@@ -55,11 +55,11 @@ func main() {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
-	nController := nodes.NewNodeController(clientSet)
-	go nController.run(stopChan)
+	nController := nodes.NewNodeController(clientSet, resyncInterval)
+	go nController.Run(stopChan)
 
-	svcController := services.NewServiceController(clientSet)
-	go svcController.run(stopChan)
+	svcController := services.NewServiceController(clientSet, resyncInterval)
+	go svcController.Run(stopChan)
 
 	ctx := context.Background()
 	err := apis.Init(ctx, stopChan)
