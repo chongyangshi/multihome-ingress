@@ -62,7 +62,7 @@ func main() {
 	go svcController.Run(stopChan)
 
 	ctx := context.Background()
-	err := apis.Init(ctx, stopChan)
+	err = apis.Init(ctx, stopChan)
 	if err != nil {
 		log.Fatalf("Error initialising internal API server: %v", err)
 	}
