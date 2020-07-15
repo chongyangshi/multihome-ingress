@@ -13,9 +13,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/icydoge/multihome-ingress/controllers/apis"
-	"github.com/icydoge/multihome-ingress/controllers/nodes"
-	"github.com/icydoge/multihome-ingress/controllers/services"
+	"github.com/chongyangshi/multihome-ingress/controllers/apis"
+	"github.com/chongyangshi/multihome-ingress/controllers/nodes"
+	"github.com/chongyangshi/multihome-ingress/controllers/services"
 )
 
 type stop struct{}

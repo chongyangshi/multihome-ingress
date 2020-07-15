@@ -6,7 +6,7 @@ import (
 
 	coreV1 "k8s.io/api/core/v1"
 
-	"github.com/icydoge/multihome-ingress/proto"
+	"github.com/chongyangshi/multihome-ingress/proto"
 )
 
 var (

@@ -3,7 +3,7 @@ package nodes
 import (
 	coreV1 "k8s.io/api/core/v1"
 
-	"github.com/icydoge/multihome-ingress/proto"
+	"github.com/chongyangshi/multihome-ingress/proto"
 )
 
 // ComputeNodeGroup returns a current list of nodes ready to serve NodePort traffic,
